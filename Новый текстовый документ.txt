@@ -1,0 +1,268 @@
+local player = game.Players.LocalPlayer
+local character = player.Character or player.CharacterAdded:Wait()
+local userInputService = game:GetService("UserInputService")
+local runService = game:GetService("RunService")
+
+local settings = {
+    speed = 50,
+    flySpeed = 50,
+    autoSteal = true,
+    noclip = true,
+    godMode = true
+}
+
+local flying = false
+local panelOpen = false
+local dragging = false
+local dragOffset = Vector2.new(0, 0)
+local humanoid = character:WaitForChild("Humanoid")
+local rootPart = character:WaitForChild("HumanoidRootPart")
+
+local screenGui = Instance.new("ScreenGui")
+screenGui.Name = "CheatGUI"
+screenGui.ResetOnSpawn = false
+screenGui.Parent = player:WaitForChild("PlayerGui")
+
+local panel = Instance.new("Frame")
+panel.Size = UDim2.new(0, 220, 0, 280)
+panel.Position = UDim2.new(0, 10, 0.5, -140)
+panel.BackgroundColor3 = Color3.fromRGB(25, 25, 35)
+panel.BackgroundTransparency = 0.1
+panel.BorderSizePixel = 0
+panel.Active = true
+panel.Visible = false
+panel.Parent = screenGui
+
+local title = Instance.new("TextLabel")
+title.Size = UDim2.new(1, 0, 0, 35)
+title.BackgroundColor3 = Color3.fromRGB(40, 40, 50)
+title.Text = "⚡ ЧИТЫ ⚡ (тяни меня)"
+title.TextColor3 = Color3.fromRGB(255, 255, 255)
+title.TextSize = 15
+title.Font = Enum.Font.GothamBold
+title.Parent = panel
+
+local function createButton(text, yPos, color, callback)
+    local btn = Instance.new("TextButton")
+    btn.Size = UDim2.new(0.9, 0, 0, 32)
+    btn.Position = UDim2.new(0.05, 0, 0, yPos)
+    btn.BackgroundColor3 = color or Color3.fromRGB(0, 150, 70)
+    btn.Text = text
+    btn.TextColor3 = Color3.fromRGB(255, 255, 255)
+    btn.TextSize = 13
+    btn.Font = Enum.Font.Gotham
+    btn.Parent = panel
+    
+    btn.MouseButton1Click:Connect(function()
+        callback(btn)
+    end)
+    
+    return btn
+end
+
+local speedBtn = createButton("🚀 Скорость: ВКЛ", 40, Color3.fromRGB(0, 150, 70), function(btn)
+    settings.speed = settings.speed == 50 and 16 or 50
+    btn.Text = "🚀 Скорость: " .. (settings.speed == 50 and "ВКЛ" or "ВЫКЛ")
+    btn.BackgroundColor3 = settings.speed == 50 and Color3.fromRGB(0, 150, 70) or Color3.fromRGB(150, 0, 0)
+    if humanoid then humanoid.WalkSpeed = settings.speed end
+end)
+
+local godBtn = createButton("🛡️ Бессмертие: ВКЛ", 77, Color3.fromRGB(0, 150, 70), function(btn)
+    settings.godMode = not settings.godMode
+    btn.Text = "🛡️ Бессмертие: " .. (settings.godMode and "ВКЛ" or "ВЫКЛ")
+    btn.BackgroundColor3 = settings.godMode and Color3.fromRGB(0, 150, 70) or Color3.fromRGB(150, 0, 0)
+end)
+
+local noclipBtn = createButton("👻 Ноуклип: ВКЛ", 114, Color3.fromRGB(0, 150, 70), function(btn)
+    settings.noclip = not settings.noclip
+    btn.Text = "👻 Ноуклип: " .. (settings.noclip and "ВКЛ" or "ВЫКЛ")
+    btn.BackgroundColor3 = settings.noclip and Color3.fromRGB(0, 150, 70) or Color3.fromRGB(150, 0, 0)
+end)
+
+local autoBtn = createButton("🥚 Автокража: ВКЛ", 151, Color3.fromRGB(0, 150, 70), function(btn)
+    settings.autoSteal = not settings.autoSteal
+    btn.Text = "🥚 Автокража: " .. (settings.autoSteal and "ВКЛ" or "ВЫКЛ")
+    btn.BackgroundColor3 = settings.autoSteal and Color3.fromRGB(0, 150, 70) or Color3.fromRGB(150, 0, 0)
+end)
+
+local closeBtn = createButton("❌ Закрыть", 188, Color3.fromRGB(150, 50, 50), function()
+    panelOpen = false
+    panel.Visible = false
+end)
+
+title.InputBegan:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = true
+        dragOffset = input.Position - panel.AbsolutePosition
+    end
+end)
+
+userInputService.InputEnded:Connect(function(input)
+    if input.UserInputType == Enum.UserInputType.MouseButton1 then
+        dragging = false
+    end
+end)
+
+userInputService.InputChanged:Connect(function(input)
+    if dragging and input.UserInputType == Enum.UserInputType.MouseMovement then
+        local newPos = input.Position - dragOffset
+        panel.Position = UDim2.new(0, newPos.X, 0, newPos.Y)
+    end
+end)
+
+local function godMode()
+    pcall(function()
+        if settings.godMode and humanoid and humanoid.Health < math.huge then
+            humanoid.Health = math.huge
+        end
+    end)
+end
+
+local function enableNoclip()
+    pcall(function()
+        if settings.noclip then
+            for _, part in ipairs(character:GetDescendants()) do
+                if part:IsA("BasePart") then
+                    part.CanCollide = false
+                end
+            end
+        end
+    end)
+end
+
+local function toggleFly()
+    flying = not flying
+    pcall(function()
+        if flying then
+            humanoid:ChangeState(Enum.HumanoidStateType.Flying)
+            humanoid.WalkSpeed = settings.flySpeed
+        else
+            humanoid:ChangeState(Enum.HumanoidStateType.Landed)
+            humanoid.WalkSpeed = settings.speed
+        end
+    end)
+end
+
+local function findEgg()
+    local egg = nil
+    
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        pcall(function()
+            if obj:IsA("BasePart") and (obj.Name:lower():find("egg") or obj.Name:lower():find("яйцо") or obj.Name:lower():find("яйца")) then
+                egg = obj
+                return
+            end
+        end)
+        if egg then break end
+    end
+    
+    if not egg then
+        for _, obj in ipairs(workspace:GetDescendants()) do
+            pcall(function()
+                if obj:IsA("BasePart") and obj:HasTag("Egg") then
+                    egg = obj
+                    return
+                end
+            end)
+            if egg then break end
+        end
+    end
+    
+    return egg
+end
+
+local function stealEgg()
+    pcall(function()
+        local egg = findEgg()
+        
+        if egg and rootPart then
+            rootPart.CFrame = egg.CFrame * CFrame.new(0, 3, 0)
+            wait(0.3)
+            
+            firetouchinterest(rootPart, egg, 0)
+            wait(0.1)
+            firetouchinterest(rootPart, egg, 1)
+            
+            local clickDetector = egg:FindFirstChildOfClass("ClickDetector")
+            if clickDetector then
+                fireclickdetector(clickDetector)
+            end
+            
+            print("✅ Яйцо украдено!")
+        else
+            print("❌ Яйцо не найдено")
+        end
+    end)
+end
+
+local autoStealConnection = nil
+local function startAutoSteal()
+    if autoStealConnection then
+        autoStealConnection:Disconnect()
+    end
+    
+    autoStealConnection = runService.Heartbeat:Connect(function()
+        pcall(function()
+            if not settings.autoSteal then return end
+            local egg = findEgg()
+            if egg and rootPart then
+                if (rootPart.Position - egg.Position).Magnitude < 50 then
+                    firetouchinterest(rootPart, egg, 0)
+                    wait(0.05)
+                    firetouchinterest(rootPart, egg, 1)
+                end
+            end
+        end)
+    end)
+end
+
+humanoid.WalkSpeed = settings.speed
+enableNoclip()
+startAutoSteal()
+
+runService.Heartbeat:Connect(function()
+    godMode()
+end)
+
+while wait(0.5) do
+    if settings.noclip then
+        enableNoclip()
+    end
+end
+
+player.CharacterAdded:Connect(function(newChar)
+    character = newChar
+    humanoid = newChar:WaitForChild("Humanoid")
+    rootPart = newChar:WaitForChild("HumanoidRootPart")
+    humanoid.WalkSpeed = settings.speed
+end)
+
+userInputService.InputBegan:Connect(function(input)
+    if input.KeyCode == Enum.KeyCode.X then
+        panelOpen = not panelOpen
+        panel.Visible = panelOpen
+    end
+    
+    if input.KeyCode == Enum.KeyCode.F then
+        toggleFly()
+    end
+    
+    if input.KeyCode == Enum.KeyCode.E then
+        stealEgg()
+    end
+    
+    if input.KeyCode == Enum.KeyCode.R then
+        pcall(function()
+            local egg = findEgg()
+            if egg and rootPart then
+                rootPart.CFrame = egg.CFrame * CFrame.new(0, 3, 0)
+            end
+        end)
+    end
+end)
+
+game.StarterGui:SetCore("SendNotification", {
+    Title = "✅ Чит загружен",
+    Text = "X - панель | F - полёт | E - кража | R - телепорт",
+    Duration = 5
+})
